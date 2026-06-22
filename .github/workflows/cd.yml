@@ -1,0 +1,117 @@
+name: CD Pipeline
+
+# Запускается автоматически после успешного CI Pipeline на main
+on:
+  workflow_run:
+    workflows: ["CI Pipeline"]
+    branches: [main]
+    types:
+      - completed
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # ── Job 1: Deploy to Staging (автоматически) ─────────────────────────────────
+  deploy-staging:
+    name: Deploy → Staging
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    environment:
+      name: staging
+      url: https://staging.devops-cicd-lab.example.com
+
+    steps:
+      - name: Determine image tag from CI run
+        id: image
+        run: |
+          SHA="${{ github.event.workflow_run.head_sha }}"
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${SHA}"
+          echo "tag=${IMAGE}" >> "$GITHUB_OUTPUT"
+          echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy to staging
+        run: |
+          echo " Deploying image: ${{ steps.image.outputs.tag }}"
+          echo "   SHA: ${{ steps.image.outputs.sha }}"
+          echo "   Environment: staging"
+          echo ""
+          echo "   [Simulated] docker pull ${{ steps.image.outputs.tag }}"
+          echo "   [Simulated] docker stop app-staging || true"
+          echo "   [Simulated] docker run -d --name app-staging \\"
+          echo "     -p 8080:8080 \\"
+          echo "     -e FEATURE_NEW_GREETING=false \\"
+          echo "     ${{ steps.image.outputs.tag }}"
+          echo ""
+          echo " Staging deployment complete."
+
+      - name: Save image tag for downstream jobs
+        run: echo "${{ steps.image.outputs.tag }}" > /tmp/image_tag.txt
+
+      - name: Upload image tag artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-tag
+          path: /tmp/image_tag.txt
+
+  # ── Job 2: Smoke Test ────────────────────────────────────────────────────────
+  smoke-test:
+    name: Smoke Test (Staging)
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+
+    steps:
+      - name: Simulate smoke test
+        run: |
+          echo "🔍 Running smoke tests against staging..."
+          echo ""
+          echo "   [Simulated] curl -sf http://staging.devops-cicd-lab.example.com/health"
+          echo "   → {\"status\": \"ok\"}"
+          echo ""
+          echo "   [Simulated] curl -sf http://staging.devops-cicd-lab.example.com/"
+          echo "   → {\"service\": \"devops-cicd-lab\", \"version\": \"...\", \"hostname\": \"...\"}"
+          echo ""
+          echo "Smoke tests passed. Staging is healthy."
+
+  # ── Job 3: Deploy to Production (ручной approval) ────────────────────────────
+  deploy-production:
+    name: Deploy → Production
+    needs: smoke-test
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://devops-cicd-lab.example.com
+
+    steps:
+      - name: Download image tag artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: image-tag
+
+      - name: Read image tag
+        id: image
+        run: echo "tag=$(cat image_tag.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy to production
+        run: |
+          echo " Deploying to PRODUCTION: ${{ steps.image.outputs.tag }}"
+          echo "   Build Once, Deploy Many — same image as staging, no rebuild!"
+          echo ""
+          echo "   [Simulated] docker pull ${{ steps.image.outputs.tag }}"
+          echo "   [Simulated] docker stop app-production || true"
+          echo "   [Simulated] docker run -d --name app-production \\"
+          echo "     -p 80:8080 \\"
+          echo "     -e FEATURE_NEW_GREETING=false \\"
+          echo "     ${{ steps.image.outputs.tag }}"
+          echo ""
+          echo " Production deployment complete."
+
+      - name: Post-deploy verification
+        run: |
+          echo " Post-deploy check..."
+          echo "   [Simulated] curl -sf https://devops-cicd-lab.example.com/health"
+          echo "   → {\"status\": \"ok\"}"
+          echo " Production is healthy."
