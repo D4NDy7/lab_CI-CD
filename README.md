@@ -1,6 +1,6 @@
 # devops-cicd-lab
 
-[![CI Pipeline](https://github.com/YOUR_USERNAME/devops-cicd-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USERNAME/devops-cicd-lab/actions/workflows/ci.yml)
+[![CI Pipeline](https://github.com/D4NDy7/lab_CI-CD/actions/workflows/ci.yml/badge.svg)](https://github.com/D4NDy7/lab_CI-CD/actions/workflows/ci.yml)
 
 > **Лабораторная работа № 7 — CI/CD Pipeline на GitHub Actions**
 > Курс: DevOps и инфраструктура | Уровень: Магистратура
