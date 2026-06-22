@@ -1,18 +1,19 @@
+import importlib
 import os
+import sys
+
 import pytest
 
 # Ensure app module is importable
-import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+
+import app as app_module  # noqa: E402
 
 
 @pytest.fixture
 def client():
     """Create test client with default env (feature flag OFF)."""
     os.environ.pop("FEATURE_NEW_GREETING", None)
-    # Re-import to apply env state
-    import importlib
-    import app as app_module
     importlib.reload(app_module)
     app_module.app.config["TESTING"] = True
     with app_module.app.test_client() as c:
@@ -23,8 +24,6 @@ def client():
 def client_feature_on():
     """Create test client with FEATURE_NEW_GREETING=true."""
     os.environ["FEATURE_NEW_GREETING"] = "true"
-    import importlib
-    import app as app_module
     importlib.reload(app_module)
     app_module.app.config["TESTING"] = True
     with app_module.app.test_client() as c:
